@@ -18,6 +18,7 @@
 #include <math.h>
 #include <ctime>
 #include <cstring>
+#include <time.h>
 
 using namespace std;
 
@@ -59,7 +60,8 @@ int main() {
 
 	int ***z;
 	double **theta, **beta;
-	initialization(z, theta, beta, N, K);
+    srand(1);
+    initialization(z, theta, beta, N, K);
 
 	// Display parameter information
 	cout << "K     = " << K << endl;
@@ -304,7 +306,7 @@ void save_objectives(double *obj, int N) {
 }
 
 void display(double **y, int N) {
-	cout << "y:" << endl;
+	cout << "beta:" << endl;
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			cout << y[i][j] << ",";
