@@ -152,8 +152,7 @@ void initialization(int ***&z, double **&theta, double **&beta, int N, int K) {
 	new_data1d(tmp_theta_sum, N);
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < K; j++) {
-			theta[i][j] = 1.f * rand();
-			// theta[i][j] = 1.f * (rand() % (N * K));
+			theta[i][j] = 1.f * (rand() % (N * K));
 			tmp_theta_sum[i] += theta[i][j];
 		}
 	}
