@@ -17,6 +17,7 @@
 #include <string.h>
 #include <math.h>
 #include <ctime>
+#include <cstring>
 
 using namespace std;
 
@@ -117,7 +118,7 @@ void load_data(int **&y, int &N) {
 	// Obtain number of vertices
 	string line;
 	getline(infile, line);
-	N = stoi(line);
+	N = atoi(line.c_str());
 	new_data2d(y, N, N);
 	for (int i = 0; i < N; i++) {
 		getline(infile, line);
@@ -127,7 +128,7 @@ void load_data(int **&y, int &N) {
 		     istream_iterator<string>(),
 		     back_inserter(tokens));
         for (unsigned int j = 0; j < tokens.size(); j++) {
-        	y[i][stoi(tokens[j])] = 1;
+        	y[i][atoi(tokens[j].c_str())] = 1;
         }
 	}
 	// Close file
