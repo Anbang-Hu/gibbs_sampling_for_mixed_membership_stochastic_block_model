@@ -1,3 +1,10 @@
+/* 
+ * Gibbs sampler
+ *
+ * Student Name: Anbang Hu
+ * Student AndrewID: anbangh
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -6,8 +13,10 @@
 #include <iterator>
 #include <vector>
 #include <stdlib.h>
+#include <cstdio>
 #include <string.h>
 #include <math.h>
+#include <ctime>
 
 using namespace std;
 
@@ -18,7 +27,7 @@ void count_links(int **&, int ***&, int **&, int ***&, int, int);
 void sample_target(int ***&, int **&, int **&, int ***&, int, int, double, double *);
 void compute_posteriors(double **&, double **&, int **&, int ***&, int, int, double, double *);
 double compute_objective(int **&, double **&, double **&, int, int);
-void display(int **, int);
+void display(double **, int);
 void save_objectives(double *, int);
 void new_data1d(int *&y, int);
 void new_data1d(double *&, int);
@@ -39,8 +48,6 @@ int main() {
 	int N;
 	int **y;
 	load_data(y, N);
-
-	// display(y,N);
 	
 	// Initialization
 	int K 				= 5;
@@ -48,15 +55,24 @@ int main() {
 	double eta[] 		= {0.01, 0.05};
 	int T 				= 10000;
 	double obj[10000] 	= {0};
+
 	int ***z;
 	double **theta, **beta;
 	initialization(z, theta, beta, N, K);
+
+	// Display parameter information
+	cout << "K     = " << K << endl;
+	cout << "alpha = " << alpha << endl;
+	cout << "eta0  = " << eta[0] << endl;
+	cout << "eta1  = " << eta[1] << endl;
+	cout << "T     = " << T << endl;
 
 	// Count links
 	int **node_comm, ***comm_comm;
 	count_links(node_comm, comm_comm, y, z, N, K);
 
 	// Sampling
+	clock_t start = clock();
 	for (int t = 0; t < T; t++) {
 		// Sample target latent variables z
 		sample_target(z, y, node_comm, comm_comm, N, K, alpha, eta);
@@ -66,10 +82,27 @@ int main() {
 
 		// Compute objective
 		obj[t] = compute_objective(y, theta, beta, N, K);
+
+		// Print epoch information
+		if (t % 100 == 0) {
+			cout << "[Iteration " << t << "]:\t Objective = " << obj[t];	
+			cout << "\t(Time elapsed: " << (clock() - start ) / (double)CLOCKS_PER_SEC << " seconds)" << endl;
+		}
 	}
 
-	// Save obj
+	// Save objectives
 	save_objectives(obj, N);
+
+	// Print beta
+	display(beta, K);
+
+	// Free memory
+	free_data2d(y, N, N); 
+	free_data3d(z, N, N, 2);
+	free_data2d(theta, N, K);
+	free_data2d(beta, K, K);
+	free_data2d(node_comm, N, K);
+	free_data3d(comm_comm, K, K, 2);
 
 	return 0;
 }
@@ -85,13 +118,7 @@ void load_data(int **&y, int &N) {
 	string line;
 	getline(infile, line);
 	N = stoi(line);
-
-	// New data holder
-	// y = new int*[N];
-	// for (int i = 0; i < N; i++)
-	// 	y[i] = new int[N];
 	new_data2d(y, N, N);
-
 	for (int i = 0; i < N; i++) {
 		getline(infile, line);
 		istringstream iss(line);
@@ -105,8 +132,6 @@ void load_data(int **&y, int &N) {
 	}
 	// Close file
 	infile.close();
-
-	// return y;
 }
 
 void initialization(int ***&z, double **&theta, double **&beta, int N, int K) {
@@ -114,18 +139,20 @@ void initialization(int ***&z, double **&theta, double **&beta, int N, int K) {
 	new_data3d(z, N, N, 2);
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
-			z[i][j][0] = rand() % K;
-			z[i][j][1] = rand() % K;
+			for (int w = 0; w < 2; w++) {
+				z[i][j][w] = rand() % K;
+			}
 		}
 	}
 
 	// Initialize theta
 	new_data2d(theta, N, K);
-	double *tmp_theta_sum = new double[N];
-	memset(tmp_theta_sum, 0, sizeof(double) * N);
+	double *tmp_theta_sum;
+	new_data1d(tmp_theta_sum, N);
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < K; j++) {
-			theta[i][j] = 1.f * (rand() % (N * K));
+			theta[i][j] = 1.f * rand();
+			// theta[i][j] = 1.f * (rand() % (N * K));
 			tmp_theta_sum[i] += theta[i][j];
 		}
 	}
@@ -133,8 +160,10 @@ void initialization(int ***&z, double **&theta, double **&beta, int N, int K) {
 	for (int i = 0; i < N; i++)
 		for (int j = 0; j < K; j++)
 			theta[i][j] /= tmp_theta_sum[i];
-			
+	free_data1d(tmp_theta_sum, N);
+
 	// Initialize beta
+	new_data2d(beta, K, K);
 	for (int i = 0; i < K; i++)
 		for (int j = 0; j < K; j++)
 			beta[i][j] = 1.f * rand() / RAND_MAX;
@@ -168,7 +197,7 @@ void count_links(int **&node_comm, int ***&comm_comm, int **&y, int ***&z, int N
 	}
 }
 
-void sample_target(int ***&z, int **&y, int **&node_comm, int ***&comm_comm, int N, int K, double alpha, double *&eta) {
+void sample_target(int ***&z, int **&y, int **&node_comm, int ***&comm_comm, int N, int K, double alpha, double *eta) {
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			if (i == j) continue;
@@ -185,7 +214,7 @@ void sample_target(int ***&z, int **&y, int **&node_comm, int ***&comm_comm, int
 			double sum = 0;
 			for (int k_i = 0; k_i < K; k_i++) {
 				for (int k_j = 0; k_j < K; k_j++) {
-					p[k_i][k_j] = (node_comm[i][k_i]+alpha)*(node_comm[i][k_i]+alpha)
+					p[k_i][k_j] = (node_comm[i][k_i]+alpha)*(node_comm[j][k_j]+alpha)
 									*(comm_comm[k_i][k_j][y[i][j]]+eta[y[i][j]])
 									/(comm_comm[k_i][k_j][0] + comm_comm[k_i][k_j][1] + eta[0] + eta[1]);
 					sum += p[k_i][k_j];
@@ -226,10 +255,11 @@ void sample_target(int ***&z, int **&y, int **&node_comm, int ***&comm_comm, int
  			// Update variables
  			node_comm[i][z1]++;
  			node_comm[j][z2]++;
- 			comm_comm[z1,z2,y[i][j]]++;
+ 			comm_comm[z1][z2][y[i][j]]++;
  			z[i][j][direction] = z1;
  			z[j][i][direction] = z2;
 
+ 			// Free temporary memory
  			free_data2d(p, K, K);
 		}
 	}
@@ -257,22 +287,23 @@ double compute_objective(int **&y, double **&theta, double **&beta, int N, int K
 			double curr_lld = 0;
 			for (int k_i = 0; k_i < K; k_i++) {
 				for (int k_j = 0; k_j < K; k_j++) {
-					if (y[i][j]) curr_lld += theta[i][k_i]*theta[i][k_i]*beta[k_i][k_j];
-					else 	     curr_lld += theta[i][k_i]*theta[i][k_i]*(1-beta[k_i][k_j]);
+					if (y[i][j]) curr_lld += theta[i][k_i]*theta[j][k_j]*beta[k_i][k_j];
+					else 	     curr_lld += theta[i][k_i]*theta[j][k_j]*(1-beta[k_i][k_j]);
 				}
 			}
 			lld += log(curr_lld);
 		}
 	}
+	return lld;
 }
 
 void save_objectives(double *obj, int N) {
-	ofstream myfile ("objective.dat");
+	ofstream myfile ("objective.txt");
 	for (int i = 0; i < N; i++)
 		myfile << obj[i] << endl;
 }
 
-void display(int **y, int N) {
+void display(double **y, int N) {
 	cout << "y:" << endl;
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
@@ -332,7 +363,7 @@ void new_data3d(double ***&y, int m, int n, int k) {
 	}
 }
 
-void free_data1d(int **&y, int m) {
+void free_data1d(int *&y, int m) {
 	delete [] y;
 }
 
@@ -342,7 +373,7 @@ void free_data2d(int **&y, int m, int n) {
 	}
 }
 
-void free_data3d(int ***&y, int m, int n) {
+void free_data3d(int ***&y, int m, int n, int k) {
 	for (int i = 0; i < m; i++) {
 		for (int j = 0; j < n; j++) {
 			delete [] y[i][j];
@@ -353,7 +384,7 @@ void free_data3d(int ***&y, int m, int n) {
 	}
 }
 
-void free_data1d(double **&y, int m) {
+void free_data1d(double *&y, int m) {
 	delete [] y;
 }
 
@@ -363,7 +394,7 @@ void free_data2d(double **&y, int m, int n) {
 	}
 }
 
-void free_data3d(double ***&y, int m, int n) {
+void free_data3d(double ***&y, int m, int n, int k) {
 	for (int i = 0; i < m; i++) {
 		for (int j = 0; j < n; j++) {
 			delete [] y[i][j];
