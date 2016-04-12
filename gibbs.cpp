@@ -92,7 +92,7 @@ int main() {
 	}
 
 	// Save objectives
-	save_objectives(obj, N);
+	save_objectives(obj, T);
 
 	// Print beta
 	display(beta, K);
