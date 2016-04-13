@@ -1,8 +1,6 @@
 /* 
- * Gibbs sampler
- *
- * Student Name: Anbang Hu
- * Student AndrewID: anbangh
+ * Gibbs sampling for mmsb
+ * Name: Haboric Hu
  */
 
 #include <iostream>
