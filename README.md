@@ -9,4 +9,4 @@ Convergence curve:
 ![alt text](https://github.com/Haboric-Hu/gibbs_sampling_for_mixed_membership_stochastic_block_model/blob/master/figures/convergence_curve.png)
 
 Adjacency matrix:
-$\beta$
+$$\beta$$
